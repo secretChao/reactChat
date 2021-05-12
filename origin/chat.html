@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>隔板突破器</title>
+    <link href="css/bootstrap.min-4.5.3.css" rel="stylesheet">
+    <script src="js/react.development.js"></script>
+    <script src="js/react-dom.development.js"></script>
+    <script src="js/babel.min.js"></script>
+</head>
+<body>
+
+<div class="container">
+    <div class="row">
+        <div class="jumbotron col-lg-10">
+            <div class="form-inline">
+	            <button type="button" class="btn btn-danger my-1 ml-3 mr-3" id="disconnect" disabled="disabled">離線</button>
+<!-- 	            <label class="my-1 ml-2 mr-1" for="room">Room:</label> -->
+<!-- 	            <select id="room" class="custom-select my-1"> -->
+<!-- 	                <option value="001">001</option> -->
+<!-- 	                <option value="002">002</option> -->
+<!-- 	                <option value="003">003</option> -->
+<!-- 	                <option value="004">004</option> -->
+<!-- 	                <option value="005">005</option> -->
+<!-- 	                <option value="006">006</option> -->
+<!-- 	            </select> -->
+	            <label class="my-1 ml-2 mr-1" for="name">Name:</label>
+	            <input type="text" id="name" class="form-control">
+	            <button type="button" class="btn btn-info my-1 ml-3 mr-3" id="connect">連接</button>
+	            <button type="button" class="btn btn-outline-secondary my-1 mr-3" id="clear">清除</button>
+	            <div class="custom-control custom-switch ml-2">
+					<input type="checkbox" class="custom-control-input" id="pupSwitch" checked>
+					<label class="custom-control-label" for="pupSwitch">彈窗提醒</label>
+				</div>
+            </div>
+            <div style="margin: 1rem 0 0 1rem;">
+                <p>對話紀錄:</p>
+                <div id="log" style="height:500px;overflow-y:auto;"></div>
+            </div>
+            <input type="text" id="text" class="col-lg-10 m-3" style="height:50px;font-size:16px;"/>
+            <input type="button" value="發送" class="btn btn-success mr-3" id="sent" disabled="disabled"/>
+        </div>
+	    <div class="col-lg-2" id="onlineList">
+
+	    </div>
+    </div>
+</div>
+</body>
+<!--<script src="https://cdn.bootcss.com/sockjs-client/0.3.4/sockjs.min.js"></script>-->
+<script type="text/babel">
+	var ws;
+    var connect = function () {
+    	let roomNum = '001';//document.querySelector('#room').value;
+	    let name = document.querySelector('#name').value;
+	    if (!name) {
+	    	log('尚未輸入Name!', 'sys');
+	    	return;
+	    }
+	    
+	    //ws = new SockJS("/connect/" + roomNum );
+	    ws = new WebSocket('ws://10.2.60.47:8080/connect/' + roomNum + '?name='+name);
+	    ws.onopen = function () {
+	        setConnected(true);
+	        //setName();
+	        log('伺服器連接成功！', 'sys');
+	    };
+	    ws.onmessage = function (event) {
+	        log(event.data, 'msg');
+	    };
+	    ws.onclose = function () {
+	        setConnected(false);
+	        log('伺服器連接中斷！', 'sys')
+	    }
+	}
+    
+    let hiddenProperty = 'hidden' in document ? 'hidden' :    
+        'webkitHidden' in document ? 'webkitHidden' :    
+        'mozHidden' in document ? 'mozHidden' :    
+        null;
+
+    let text = document.querySelector('#text');
+    let connectBtn = document.querySelector("#connect");
+    let sentBtn = document.querySelector("#sent");
+    let disconnectBtn = document.querySelector("#disconnect");
+    let clearBtn = document.querySelector("#clear");
+    let logDiv = document.querySelector("#log");
+    //let roomSelect = document.querySelector("#room");
+    let nameInput = document.querySelector("#name");
+    let pupSwitch = document.querySelector('#pupSwitch');
+ 
+    var sent = function () {
+        if (text.value == '') {
+        	return;
+        }
+    	
+    	if (ws != null) {
+            ws.send(text.value);
+            text.value = '';
+        } else {
+            log('尚未連接！', 'sys')
+        }
+    }
+ 
+    var disconnect = function () {
+        if (ws != null) {
+            ws.close();
+            ws = null;
+        }
+        setConnected(false);
+    }
+ 
+    const logData = [];
+    var log = function (value, type) {
+    	
+    	let sentMsg;
+    	let sentDate;
+    	let sentName;
+    	let sentType;
+    	
+    	if (type == 'msg') {
+    		let json = JSON.parse(value);
+    		sentMsg = json.sentMsg;
+    		sentDate = json.sentDate;
+    		sentName = json.sentName;
+    		sentType = json.sentType;
+    	} else {
+    		sentMsg = value;
+    		sentType = 'SYS';
+    	}
+    	
+    	if (sentType == 'LIST') {
+    		updateOnlinelist(sentMsg);
+    		return;
+    	}
+    	
+        /*let content = document.createElement('div');
+        content.style['word-break'] = 'break-word';
+        if (sentType == 'SYS' ) {
+        	content.style.color = 'red';
+        }
+        
+        let outputMsg = '';
+        if (sentDate) {
+	        outputMsg = sentDate + ' ';        	
+        }
+        if (sentName) {
+        	outputMsg = outputMsg + sentName + ': ';
+        }
+        outputMsg = outputMsg + sentMsg;
+        
+        content.textContent = outputMsg;
+        logDiv.appendChild(content);*/
+
+        logData.push({sentType:sentType, sentDate:sentDate, sentName:sentName, sentMsg:sentMsg});
+
+        ReactDOM.render(
+            <NewMsg logData={logData} />,
+            document.getElementById('log')
+        );
+        
+        logDiv.scrollTop = logDiv.scrollHeight;
+        
+        if (!document[hiddenProperty]) {
+        	message.clear();
+        } else {
+            message.show();
+            windowFlashing();
+        }
+    }
+
+    const NewMsg = function(props) {
+        const datas = props.logData;
+
+        const [count, setCount] = React.useState(0);
+
+        React.useEffect(() => {
+            logDiv.scrollTop = logDiv.scrollHeight;
+        });
+        
+        const eles = datas.map((data, index) => {
+            return (
+                <div className="text-break" style={data.sentType == 'SYS' ? {color: 'red'} : null} key={index}>
+                    {data.sentDate ? data.sentDate + ' ' : ''}{data.sentName ? data.sentName + ': ' : ''}{data.sentMsg}
+                    </div>
+                    )
+                });
+        return (
+            <div>
+                {eles}
+            </div>
+        );
+    }
+    
+    var windowFlashing = function () {
+    	if (!pupSwitch.checked) {
+    		return;
+    	}
+    	
+    	var newWindow = window.open('有新訊息!');
+    	newWindow.opener = null;
+    	newWindow.close();
+    }
+    
+//     var getTime = function(){
+//     	var now = new Date();
+//     	return timeFormat(now.getHours()) + ':' + timeFormat(now.getMinutes()) + ':' + timeFormat(now.getSeconds());
+//     }
+    
+    var timeFormat = function(timeData){
+        if (timeData / 10 < 1) {
+        	return "0" + timeData;
+        }
+        return timeData;
+    }
+ 
+    var setConnected = function (connected) {
+        connectBtn.disabled = connected;
+        disconnectBtn.disabled = !connected;
+        sentBtn.disabled = !connected;
+        //roomSelect.disabled = connected;
+        nameInput.disabled = connected;
+    }
+
+    const OnlineList = function(props){
+        const data = props.clientList;
+        const tmpl = !data ? (<tr></tr>) : data.map((client, index) => {
+            return (
+                <tr key={index}>
+                    <td>{client}</td>
+                </tr>
+            )
+        });
+
+        return (
+            <table className="table table-striped" aria-describedby="在線清單">
+                <thead className="thead-dark">
+                    <tr>
+                        <th scope="col">在線清單</th>
+                    </tr>
+                </thead>
+                <tbody>{tmpl}</tbody>
+            </table>		
+        );
+    }
+    
+    var updateOnlinelist = function (value) {
+    	/*let onlineList = document.querySelector('#onlineList');
+    	let tbody = onlineList.querySelector('tbody');
+    	if(tbody){
+    		tbody.remove();
+    	}
+    	let newTbody = document.createElement('tbody');
+    	
+    	let clientList = Object.values(JSON.parse(value));
+    	clientList.forEach(client => {
+    		let tr = document.createElement('tr');
+    		let td = document.createElement('td');
+    		td.textContent = client;
+    		tr.appendChild(td);
+    		newTbody.appendChild(tr);
+    	});
+    	
+    	onlineList.appendChild(newTbody);*/
+
+        let clientList = Object.values(JSON.parse(value));
+        ReactDOM.render(
+            <OnlineList clientList={clientList} />,
+            document.getElementById('onlineList')
+        );
+    }
+    
+    
+    connectBtn.onclick = function(){
+    	connect();
+    };
+    
+    sentBtn.onclick = function(){
+    	sent();
+    };
+    
+    disconnectBtn.onclick = function(){
+    	disconnect();
+    };
+    
+    clearBtn.onclick = function(){
+    	ReactDOM.unmountComponentAtNode(document.getElementById('log'));
+    };
+    
+    document.addEventListener('keydown', (e) => {
+    	if ((e.key == 'Enter')){	
+        	sent();
+        }
+    });
+    
+    var visibilityChangeEvent = hiddenProperty.replace(/hidden/i, 'visibilitychange');
+	document.addEventListener(visibilityChangeEvent, function(){
+	    if (!document[hiddenProperty]) {
+		    message.clear();
+	    }
+// 	    if (document.visibilityState == 'visible') {
+// 	    	message.clear();
+// 	    }
+	});
+    
+    var message = { 
+        time: 0, 
+        title: document.title, 
+        timer: null, 
+        // 顯示新訊息提示 
+        show: function () { 
+            var title = message.title.replace("【新訊息】", ""); 
+            // 定時器,設定訊息切換頻率閃爍效果就此產生 
+            message.timer = setTimeout(function () { 
+                message.time++; 
+                message.show(); 
+                if (message.time % 2 == 0) { 
+                    document.title = "【新訊息】" + title;
+                } else {
+                	document.title = title;
+                }
+            }, 600); 
+            return [message.timer, message.title]; 
+        }, 
+        // 取消新訊息提示 
+        clear: function () { 
+            clearTimeout(message.timer); 
+            document.title = message.title; 
+        } 
+    }; 
+
+        ReactDOM.render(
+            <OnlineList clientList={null} />,
+            document.getElementById('onlineList')
+        );
+
+</script>
+</html>
