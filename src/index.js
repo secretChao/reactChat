@@ -1,11 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
-import Room from './Room';
+import App from './App';
 import reportWebVitals from './reportWebVitals';
 
 ReactDOM.render(
-    <Room />,
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
   document.getElementById('root')
 );
 
