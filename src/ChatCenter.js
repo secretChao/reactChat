@@ -3,10 +3,10 @@ import ReactDOM from 'react-dom';
 import NewMsg from './NewMsg';
 import OnlineList from './OnlineList';
 
+let ws ;
+let logData = [];
 export default function ChatCenter () {
 
-    var ws ;
-    var logData = [];
     
     let hiddenProperty = 'hidden' in document ? 'hidden' :    
     'webkitHidden' in document ? 'webkitHidden' :    
@@ -120,12 +120,12 @@ export default function ChatCenter () {
         newWindow.close();
     }
     
-    const setConnected = function (connected) {
-        document.querySelector("#connect").disabled = connected;
-        document.querySelector("#disconnect").disabled = !connected;
-        document.querySelector("#name").disabled = connected;
-        document.querySelector("#sent").disabled = !connected;
-    }
+    // const setConnected = function (connected) {
+    //     document.querySelector("#connect").disabled = connected;
+    //     document.querySelector("#disconnect").disabled = !connected;
+    //     document.querySelector("#name").disabled = connected;
+    //     document.querySelector("#sent").disabled = !connected;
+    // }
     
     const sent = function () {
         let text = document.querySelector('#text');
@@ -155,21 +155,26 @@ export default function ChatCenter () {
     };
 
     document.addEventListener('keydown', (e) => {
+        if(!ws) {
+            return;
+        }
     	if ((e.key === 'Enter' && e.shiftKey)){	
         	return;
-        } else if ((e.key === 'Enter')){	
+        } else if ((e.key === 'Enter')){
         	sent();
         }
     });
 
+    const [isDisabled, setConnected] = React.useState(false);
+
     return (
         <div className="jumbotron col-lg-10">
             <div className="form-inline">
-                <button type="button" className="btn btn-danger my-1 ml-3 mr-3" id="disconnect" disabled="disabled" onClick={disconnect}>離線</button>
+                <button type="button" className="btn btn-danger my-1 ml-3 mr-3" id="disconnect" disabled={!isDisabled} onClick={disconnect}>離線</button>
 
                 <label className="my-1 ml-2 mr-1" htmlFor="name">Name:</label>
-                <input type="text" id="name" className="form-control" />
-                <button type="button" className="btn btn-info my-1 ml-3 mr-3" id="connect" onClick={connect}>連接</button>
+                <input type="text" id="name" className="form-control" disabled={isDisabled} />
+                <button type="button" className="btn btn-info my-1 ml-3 mr-3" id="connect" disabled={isDisabled} onClick={connect}>連接</button>
                 <button type="button" className="btn btn-outline-secondary my-1 mr-3" id="clear" onClick={clearMsg}>清除</button>
                 <div className="custom-control custom-switch ml-2">
                     <input type="checkbox" className="custom-control-input" id="pupSwitch" defaultChecked />
@@ -181,9 +186,9 @@ export default function ChatCenter () {
                 <div id="log" style={{height: 500, overflowY: 'auto'}}></div>
             </div>
             <div>
-                <input type="text" id="text" className="col-lg-10" style={{height: 40, fontSize: 16, verticalAlign: 'bottom', resize: 'none'}} />
+                <input type="text" id="text" className="col-lg-10" disabled={!isDisabled} style={{height: 40, fontSize: 16, verticalAlign: 'bottom', resize: 'none'}} />
                 <div className="col-lg-2" style={{width: '20%', display: 'inline-block', verticalAlign: 'bottom'}}>
-                    <input type="button" id="sent" value="發送" className="btn btn-success mr-3" disabled="disabled" onClick={sent} />
+                    <input type="button" id="sent" value="發送" className="btn btn-success mr-3" disabled={!isDisabled} onClick={sent} />
                 </div>
             </div>
         </div>
